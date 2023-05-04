@@ -90,6 +90,7 @@ void new_file(char *new_filename);
 void init();
 void shutdown();
 void close(buffer *close_buffer);
+void prompt_save();
 
 void draw_screen();
 void update_status(char *message);
@@ -178,7 +179,6 @@ int main(int argc, char *argv[])
 			case 551: // CTRL-PGDOWN
 				if (current_buffer->next != NULL) current_buffer = current_buffer->next;
 				else current_buffer = first_buffer;
-				// move_file_home();
 				break;
 
 			case CTRL('l'): // Line numbers
@@ -188,20 +188,13 @@ int main(int argc, char *argv[])
 				if (get_input("Goto line ", "", s, 10))
 				{
 					if (atoi(s) > 0)
-					{
 						goto_line(atoi(s));
-					}
 				}
 				break;
 
 			// Saving and loading
 			case CTRL('s'): // Save
-				if (get_input("Save as ", current_buffer->filename, s, MAX_FILENAME_LENGTH))
-				{
-					current_buffer->filename = (char *)realloc(current_buffer->filename, sizeof(char) * strlen(s) + 1);
-					strcpy(current_buffer->filename, s);
-					save_file(current_buffer->filename);
-				}
+				prompt_save();
 				break;
 			case CTRL('o'): // Open
 				if (get_input("Load ", "", s, MAX_FILENAME_LENGTH))
@@ -211,11 +204,14 @@ int main(int argc, char *argv[])
 					move_file_home();				}
 				break;
 			case KEY_F(4): // Close
+				if (current_buffer->modified) 
+					prompt_save();
 				close(current_buffer);
 				break;
 			case CTRL('n'): // New
 				new_file("new.txt");
 				move_file_home();
+				break;
 
 			// Cut and paste
 			case CTRL('c'): // Cut
@@ -223,9 +219,11 @@ int main(int argc, char *argv[])
 				break;
 			case CTRL('x'): // Cut
 				cut_line();
+				current_buffer->modified = true;
 				break;
 			case CTRL('v'): // Paste
 				paste_line();
+				current_buffer->modified = true;
 				break;
 
 			// Editing
@@ -727,23 +725,28 @@ void cut_line()
 	delete_lines(pastebuffer); // clear the buffer completely
 	pastebuffer = insert_line(NULL, NULL, current_buffer->current_line->text, current_buffer->current_line->length);
 
-	if (current_buffer->current_line->next != NULL)
+	if (current_buffer->current_line->next != NULL) // not the last line
 	{
 		current_buffer->current_line = current_buffer->current_line->next;
 		delete_line(current_buffer->current_line->prev);
+		current_buffer->lines--;
+		move_home();
 	}
-	else if (current_buffer->current_line->prev != NULL)
+	else if (current_buffer->current_line->prev != NULL) // last line but not the first line
 	{
 		current_buffer->current_line = current_buffer->current_line->prev;
 		delete_line(current_buffer->current_line->next);
 		current_buffer->cy--;
+		current_buffer->lines--;
+		move_home();
 	}
-	else
+	else // last line and first line ie only line
 	{
-	// TODO: what happens if cutting only line; clear line and create new, set first_screen_line
+		delete_line(current_buffer->current_line);
+		current_buffer->current_line = insert_line(NULL, NULL, NULL, 0);
+		current_buffer->first_line = current_buffer->current_line;
+		move_file_home();
 	}
-	current_buffer->lines--;
-	move_home();
 	return;
 }
 
@@ -775,8 +778,7 @@ void delete_line(Line *line)
 		line->prev->next = line->next;
 	if (line->next != NULL)
 		line->next->prev = line->prev;
-	// if (current_buffer->first_line == line)
-	// 	current_buffer->first_line = line->next;
+
 	free(line->text);
 	free(line);
 }
@@ -896,5 +898,16 @@ void close(buffer *close_buffer)
 	free(close_buffer->filename);
 	free(close_buffer);
 	return;
+}
+
+void prompt_save()
+{
+	char s[MAX_FILENAME_LENGTH];
+	if (get_input("Save as ", current_buffer->filename, s, MAX_FILENAME_LENGTH))
+	{
+		current_buffer->filename = (char *)realloc(current_buffer->filename, sizeof(char) * strlen(s) + 1);
+		strcpy(current_buffer->filename, s);
+		save_file(current_buffer->filename);
+	}
 }
 
