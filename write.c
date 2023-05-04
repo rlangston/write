@@ -52,8 +52,12 @@ typedef struct buffer {
 } buffer;
 
 buffer *current_buffer = NULL;
+
 buffer *paste_buffer = NULL;
+
 buffer *message_buffer= NULL;
+int message_timer = 0;
+
 buffer *first_buffer = NULL;
 
 // Cut and paste buffer
@@ -95,6 +99,7 @@ void prompt_save();
 
 void draw_screen();
 void update_status();
+void message(char *msg);
 void draw_line(int y, Line *line);
 void toggle_linenumbers();
 
@@ -131,8 +136,10 @@ int main(int argc, char *argv[])
 	message_buffer = add_buffer();
 	message_buffer->first_line = NULL;
 	message_buffer->lines = 0;
-	char *message = "";
-	message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
+
+	message("");
+	// char *message = "";
+	// message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
 
 	init();
 	move_file_home();
@@ -518,8 +525,21 @@ void update_status()
 	if (current_buffer->modified) modified_indicator = '*';
 	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + 1, current_buffer->lines, current_buffer->cx);
 	wclrtoeol(statusscr);
-	mvwprintw(statusscr, 0, 30, "%s", message_buffer->first_line->text);
+
+	if (message_timer > 0)
+	{
+		message_timer--;
+		mvwprintw(statusscr, 0, 30, "%s", message_buffer->first_line->text);
+	}
+
 	wrefresh(statusscr);
+	return;
+}
+
+void message(char *msg)
+{
+	message_buffer->first_line = insert_line(NULL, message_buffer->first_line, msg, strlen(msg) + 1);
+	message_timer = 5;
 	return;
 }
 
@@ -929,8 +949,10 @@ void prompt_save()
 		strcpy(current_buffer->filename, s);
 		save_file(current_buffer->filename);
 
-		char *message = "Saved";
-		message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
+		message("Saved");
+
+		// char *message = "Saved";
+		// message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
 	}
 }
 
