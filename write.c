@@ -6,6 +6,7 @@
 #define CTRL(x) ((x) & 0x1f)
 
 #define MAX_FILENAME_LENGTH 255
+#define MAX_COMMAND_LENGTH 255
 
 // Window size
 int windowx, windowy;
@@ -93,7 +94,7 @@ void close(buffer *close_buffer);
 void prompt_save();
 
 void draw_screen();
-void update_status(char *message);
+void update_status();
 void draw_line(int y, Line *line);
 void toggle_linenumbers();
 
@@ -112,7 +113,7 @@ buffer *add_buffer();
 
 int main(int argc, char *argv[])
 {
-	char s[MAX_FILENAME_LENGTH];
+	char s[MAX_COMMAND_LENGTH];
 
 	if (argc >= 2)
 	{
@@ -125,6 +126,14 @@ int main(int argc, char *argv[])
 	}
 
 	first_buffer = current_buffer;
+
+	// Create message buffer
+	message_buffer = add_buffer();
+	message_buffer->first_line = NULL;
+	message_buffer->lines = 0;
+	char *message = "";
+	message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
+
 	init();
 	move_file_home();
 	
@@ -132,6 +141,7 @@ int main(int argc, char *argv[])
 	{
 		wmove(stdscr, current_buffer->cy, current_buffer->cx - current_buffer->offsetx + current_buffer->margin_left); // Move cursor to position
 		draw_screen();
+		update_status();
 
 		ch = getch();
 		if (ch == CTRL('q'))
@@ -201,7 +211,8 @@ int main(int argc, char *argv[])
 				{
 					if (!open_file(s))
 						new_file(s);
-					move_file_home();				}
+					move_file_home();				
+				}
 				break;
 			case KEY_F(4): // Close
 				if (current_buffer->modified) 
@@ -224,6 +235,14 @@ int main(int argc, char *argv[])
 			case CTRL('v'): // Paste
 				paste_line();
 				current_buffer->modified = true;
+				break;
+
+			// Command mode
+			case 27: // ESC
+				if (get_input("? ", "", s, MAX_COMMAND_LENGTH))
+				{
+					// execute command
+				}
 				break;
 
 			// Editing
@@ -259,6 +278,8 @@ void init()
 {
 	// Initialise screen and get dimensions
 	initscr();
+	set_escdelay(1);
+
 	getmaxyx(stdscr, windowy, windowx);
 	windowy -= 2; // Reduce for status bar and message buffer
 
@@ -303,6 +324,8 @@ void shutdown()
 		free(current_buffer);
 		current_buffer = buf;
 	}
+
+	set_escdelay(1000);
 	endwin();
 	return;
 }
@@ -489,12 +512,13 @@ void move_lines_down(int count)
 	return;
 }
 
-void update_status(char *message)
+void update_status()
 {
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
-	mvwprintw(statusscr, 0, 0, "%s %s%c L%d/%lu C%d", message, current_buffer->filename, modified_indicator, current_buffer->cy + 1, current_buffer->lines, current_buffer->cx);
+	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + 1, current_buffer->lines, current_buffer->cx);
 	wclrtoeol(statusscr);
+	mvwprintw(statusscr, 0, 30, "%s", message_buffer->first_line->text);
 	wrefresh(statusscr);
 	return;
 }
@@ -531,7 +555,6 @@ void draw_screen()
 		y++;
 	}
 	wrefresh(textscr);
-	update_status("");
 	return;
 }
 
@@ -569,7 +592,6 @@ bool get_input(char *prompt, char *placeholder, char *response, size_t max_lengt
 	strcpy(response, placeholder);
 
 	int icx = strlen(response);
-	set_escdelay(1);
 
 	while (1)
 	{
@@ -597,12 +619,10 @@ bool get_input(char *prompt, char *placeholder, char *response, size_t max_lengt
 			case 27: // ESCAPE
 				werase(commandscr);
 				wrefresh(commandscr);
-				set_escdelay(1000);
 				return false;
 			case 10: // ENTER
 				werase(commandscr);
 				wrefresh(commandscr);
-				set_escdelay(1000);
 				return true;
 			case KEY_BACKSPACE:
 				memmove(response + icx - 1, response + icx, strlen(response) - icx + 1);
@@ -908,6 +928,9 @@ void prompt_save()
 		current_buffer->filename = (char *)realloc(current_buffer->filename, sizeof(char) * strlen(s) + 1);
 		strcpy(current_buffer->filename, s);
 		save_file(current_buffer->filename);
+
+		char *message = "Saved";
+		message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
 	}
 }
 
