@@ -243,15 +243,19 @@ void init()
 void shutdown()
 {
 	delete_lines(pastebuffer); // Clear the copy buffer
-	buffer *buf;
+	// close(message_buffer); // Close the message buffer
 
-	current_buffer = first_buffer;
+	// Close any open buffers
 	while (current_buffer != NULL)
 	{
-		delete_lines(current_buffer->first_line); // Clear the text buffer starting at the first line
-		buf = current_buffer->next;
-		free(current_buffer);
-		current_buffer = buf;
+		if (current_buffer->modified) 
+		{
+			draw_screen();
+			wrefresh(textscr);
+			update_status();
+			prompt_save();
+		}
+		close(current_buffer);
 	}
 
 	set_escdelay(1000);
@@ -890,9 +894,6 @@ void prompt_save()
 		save_file(current_buffer->filename);
 
 		message("Saved");
-
-		// char *message = "Saved";
-		// message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
 	}
 }
 
