@@ -65,12 +65,7 @@ int main(int argc, char *argv[])
 	
 	while(current_buffer != NULL)
 	{
-		draw_screen();
-		// wmove(stdscr, current_buffer->cy, current_buffer->cx - current_buffer->offsetx + current_buffer->margin_left); // Move cursor to position
-		wmove(stdscr, current_buffer->cy, display_cx); // Move cursor to position
-		wrefresh(textscr);
-		update_status();
-
+		refresh_screen();
 		ch = getch();
 		if (ch == CTRL('q'))
 			break;
@@ -127,6 +122,28 @@ int main(int argc, char *argv[])
 				{
 					if (atoi(s) > 0)
 						goto_line(atoi(s));
+				}
+				break;
+			case CTRL('f'): // Find
+				if (get_input("Search for ", "", s, MAX_COMMAND_LENGTH))
+				{
+					if (find(s, current_buffer->current_line, current_buffer->cx))
+					{
+						message("Press ENTER to search again");
+						refresh_screen();
+						ch = getch();
+						while (ch == 10) // While ENTER is pressed, find again
+						{
+							find(s, current_buffer->current_line, current_buffer->cx);
+							message("Press ENTER to search again");
+							refresh_screen();
+							ch = getch();
+						}
+						message("");
+						ungetch(ch); // Push character back into input buffer if not ENTER
+					}
+
+					break;
 				}
 				break;
 
@@ -449,7 +466,7 @@ void update_status()
 {
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
-	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + 1, current_buffer->lines, current_buffer->cx);
+	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + +current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx);
 	wclrtoeol(statusscr);
 
 	if (message_timer > 0)
@@ -501,6 +518,16 @@ void draw_screen()
 		y++;
 	}
 
+	return;
+}
+
+void refresh_screen()
+{
+	draw_screen();
+	// wmove(stdscr, current_buffer->cy, current_buffer->cx - current_buffer->offsetx + current_buffer->margin_left); // Move cursor to position
+	wmove(stdscr, current_buffer->cy, display_cx); // Move cursor to position
+	wrefresh(textscr);
+	update_status();
 	return;
 }
 
@@ -583,8 +610,11 @@ bool get_input(char *prompt, char *placeholder, char *response, size_t max_lengt
 				wrefresh(commandscr);
 				return true;
 			case KEY_BACKSPACE:
-				memmove(response + icx - 1, response + icx, strlen(response) - icx + 1);
-				icx--;
+				if (icx > 0)
+				{
+					memmove(response + icx - 1, response + icx, strlen(response) - icx + 1);
+					icx--;
+				}
 				break;
 			case KEY_DC:
 				memmove(response + icx, response + icx + 1, strlen(response) - icx + 1);
@@ -895,6 +925,37 @@ void prompt_save()
 
 		message("Saved");
 	}
+}
+
+bool find(char *find_string, Line *start_line, int start_x)
+{
+	Line *l = start_line;
+	int find_y = current_buffer->cy + current_buffer->offsety;
+	int find_x = start_x + 1;
+
+	while (l != start_line->prev)
+	{
+		char *match = strstr(l->text + find_x, find_string);
+		if (match)
+		{
+			goto_line(find_y + 1);
+			current_buffer->cx = match - l->text;
+			check_boundx();
+			return true;
+		}
+
+		l = l->next;
+		find_y += 1;
+		find_x = 0;
+
+		// If last line then jump back to first
+		if ((l == NULL) && (start_line != current_buffer->first_line))
+		{
+			l = current_buffer->first_line;
+			find_y = 0;
+		}
+	}
+	return false;
 }
 
 void resize_window()

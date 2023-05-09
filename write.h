@@ -53,6 +53,7 @@ void move_lines_down(int count);
 void copy_line();
 void cut_line();
 void paste_line();
+bool find(char *find_string, Line *start_line, int start_x);
 void delete_line(Line *line);
 void delete_lines(Line *start_line);
 
@@ -67,6 +68,7 @@ void prompt_save();
 void resize_window();
 
 void draw_screen();
+void refresh_screen();
 void update_status();
 void message(char *msg);
 void draw_line(int y, Line *line);
