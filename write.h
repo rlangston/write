@@ -2,7 +2,10 @@
 
 #define MAX_FILENAME_LENGTH 255
 #define MAX_COMMAND_LENGTH 255
-#define TAB_SIZE 4
+
+// Options
+int o_tabsize;
+int o_messagecooldown;
 
 // Colours
 #define COL_WHITEBLUE 1
@@ -45,6 +48,9 @@ void move_home();
 void move_file_home();
 void move_file_end();
 
+int cxtodx(Line *line, int cx);
+int dxtocx(Line *line, int dx);
+
 void check_boundx();
 void goto_line(ssize_t line);
 void move_lines_up(int count);
@@ -65,6 +71,7 @@ void init();
 void shutdown();
 void close(buffer *close_buffer);
 void prompt_save();
+void load_options();
 void resize_window();
 
 void draw_screen();

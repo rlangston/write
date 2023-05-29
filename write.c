@@ -38,6 +38,7 @@ int ch;
 int main(int argc, char *argv[])
 {
 	char s[MAX_COMMAND_LENGTH];
+	load_options();
 
 	if (argc >= 2)
 	{
@@ -319,7 +320,7 @@ void move_left()
 }
 
 void move_up()
-{
+{	
 	move_lines_up(1);
 	check_boundx();
 	return;
@@ -415,7 +416,7 @@ void check_boundx()
 		current_buffer->offsetx = 0;
 		current_buffer->cx = 0;
 	}
-	if (current_buffer->cx - current_buffer->offsetx > windowx - current_buffer->margin_left - 1)
+	if (cxtodx(current_buffer->current_line, current_buffer->cx) - current_buffer->offsetx > windowx - current_buffer->margin_left - 1)
 		current_buffer->offsetx = current_buffer->cx - windowx - current_buffer->margin_left + 1;
 
 	return;
@@ -431,6 +432,7 @@ void goto_line(ssize_t line)
 
 void move_lines_up(int count)
 {
+	int d = cxtodx(current_buffer->current_line, current_buffer->cx);
 	while (count-- > 0 && current_buffer->current_line->prev != NULL)
 	{
 		if (current_buffer->cy > 0)
@@ -442,12 +444,13 @@ void move_lines_up(int count)
 		}
 		current_buffer->current_line = current_buffer->current_line->prev;
 	}
-
+	current_buffer->cx = dxtocx(current_buffer->current_line, d);
 	return;
 }
 
 void move_lines_down(int count)
 {
+	int d = cxtodx(current_buffer->current_line, current_buffer->cx);
 	while (count-- > 0 && current_buffer->current_line->next != NULL)
 	{
 		if (current_buffer->cy < windowy - 1)
@@ -459,6 +462,7 @@ void move_lines_down(int count)
 		}
 		current_buffer->current_line = current_buffer->current_line->next;
 	}
+	current_buffer->cx = dxtocx(current_buffer->current_line, d);
 	return;
 }
 
@@ -482,7 +486,7 @@ void update_status()
 void message(char *msg)
 {
 	message_buffer->first_line = insert_line(NULL, message_buffer->first_line, msg, strlen(msg) + 1);
-	message_timer = 5;
+	message_timer = o_messagecooldown;
 	return;
 }
 
@@ -542,7 +546,7 @@ void draw_line(int y, Line *line)
 
 	wmove(textscr, y, current_buffer->margin_left);
 	int x = 0;
-	int dx = 0;
+
 	while ((x + current_buffer->offsetx < line->length) && x < windowx - current_buffer->margin_left)
 	{
 		if (isdigit(line->text[x + current_buffer->offsetx]))
@@ -552,11 +556,7 @@ void draw_line(int y, Line *line)
 			wattroff(textscr, COLOR_PAIR(2));
 		}
 		else if (line->text[x + current_buffer->offsetx] == '\t')
-		{
-			for (int i = 0; i < TAB_SIZE; i++) waddch(textscr, ' ');
-			// NEED TO DEAL WITH THIS
-			if (current_buffer->cx - current_buffer->offsetx > x) dx += TAB_SIZE - 1;
-		}
+			for (int i = 0; i < o_tabsize; i++) waddch(textscr, ' ');
 		else
 			waddch(textscr, line->text[x + current_buffer->offsetx]);
 		x++;
@@ -564,11 +564,33 @@ void draw_line(int y, Line *line)
 	wclrtoeol(textscr);
 
 	if (line == current_buffer->current_line)
-	{
-		display_cx = current_buffer->cx - current_buffer->offsetx + current_buffer->margin_left + dx;
-	}
+		display_cx = cxtodx(line, current_buffer->cx) - current_buffer->offsetx + current_buffer->margin_left;
 
 	return;
+}
+
+int cxtodx(Line *line, int cx)
+{
+	int dx = 0;
+	for (int c = 0; c < cx; c++)
+		if (line->text[c] == '\t') dx += o_tabsize;
+		else dx += 1;
+	return dx;
+}
+
+int dxtocx(Line *line, int dx)
+{
+	int cx = 0;
+	int c = 0;
+	while (c < dx)
+	{
+		if (line->text[c] == '\t')
+			c += o_tabsize;
+		else
+			c += 1;
+		cx++;
+	}
+	return cx;
 }
 
 bool get_input(char *prompt, char *placeholder, char *response, size_t max_length)
@@ -865,6 +887,39 @@ void new_file(char *new_filename)
 	current_buffer->lines = 1;
 	current_buffer->modified = false;
 	return;
+}
+
+void load_options()
+{
+    char *read_line = NULL;
+    char option[20], value[20];
+	size_t max_length = 0;
+
+    // Set default options
+    o_tabsize = 4;
+    o_messagecooldown = 2;
+
+    char filename[256];
+    strcat(strcpy(filename, getenv("HOME")), "/.write");
+
+	FILE *fp = fopen(filename, "r");
+	if (!fp) return;
+
+	while (getline(&read_line, &max_length, fp) != -1)
+	{
+        // Skip blank lines and comments prefaced with '#'
+        if (strlen(read_line) == 1) continue;
+        if (read_line[0] == '#') continue;
+
+        sscanf(read_line, "%20s %20s", option, value);
+
+        if (strcmp(option, "TABSIZE") == 0) o_tabsize = atoi(value);
+        else if (strcmp(option, "MESSAGE_COOLDOWN") == 0) o_messagecooldown = atoi(value);
+	}
+
+ 	free(read_line);
+	fclose(fp);
+    return;
 }
 
 buffer *add_buffer()
