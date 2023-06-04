@@ -1026,8 +1026,33 @@ bool run_command(char *s)
 	if (strcmp(token, "count") == 0)
 	{
 		token = strtok(NULL, " ");
-		if (token == NULL) return false;
-		if (strcmp(token, "loc") == 0)
+		if (token == NULL) // default count words
+		{
+			int words = 0;
+			Line *l = current_buffer->first_line;
+			while (l != NULL)
+			{
+				int c = 0;
+				bool w = false;
+				while (c < l->length)
+				{
+					if (isspace(l->text[c])) w = false;
+					else if (!w)
+					{
+						w = true;
+						words++;
+					}
+					c++;
+				}
+
+				l = l->next;
+			}
+
+			sprintf(msg, "Words: %d", words);
+			message(msg);
+		}
+
+		else if (strcmp(token, "loc") == 0) // count lines of code
 		{
 			int lines = 0;
 			Line *l = current_buffer->first_line;
@@ -1059,10 +1084,6 @@ bool run_command(char *s)
 			}
 			sprintf(msg, "LOC: %d", lines);
 			message(msg);
-		}
-		else
-		{
-			// default count words
 		}
 	}
 
