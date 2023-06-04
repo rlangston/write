@@ -185,10 +185,7 @@ int main(int argc, char *argv[])
 
 			// Command mode
 			case 27: // ESC
-				if (get_input("? ", "", s, MAX_COMMAND_LENGTH))
-				{
-					// execute command
-				}
+				if (get_input("? ", "", s, MAX_COMMAND_LENGTH)) run_command(s);
 				break;
 			case KEY_RESIZE:
 				resize_window();
@@ -1018,3 +1015,59 @@ void resize_window()
 	getmaxyx(stdscr, windowy, windowx);
 	windowy -= 2; // Reduce for status bar and message buffer
 }
+
+bool run_command(char *s)
+{
+	char *token;
+	char msg[255];
+	token = strtok(s, " ");
+	if (token == NULL) return false;
+
+	if (strcmp(token, "count") == 0)
+	{
+		token = strtok(NULL, " ");
+		if (token == NULL) return false;
+		if (strcmp(token, "loc") == 0)
+		{
+			int lines = 0;
+			Line *l = current_buffer->first_line;
+			while (l != NULL)
+			{
+				if (l->length <= 0)  // Blank line
+				{
+					l = l->next;
+					continue;
+				}
+
+				int trim_start = 0;
+				while ((trim_start < l->length) && (isspace(l->text[trim_start]))) trim_start++;
+
+				if (trim_start == l->length) // Blank line of whitespace
+				{
+					l = l->next;
+					continue;
+				}
+
+				if (l->text[trim_start] == '#') // Comment
+				{
+					l = l->next;
+					continue;
+				}
+
+				lines++;
+				l = l->next;
+			}
+			sprintf(msg, "LOC: %d", lines);
+			message(msg);
+		}
+		else
+		{
+			// default count words
+		}
+	}
+
+	// Return true if executed command
+	return true;
+}
+
+

@@ -73,6 +73,7 @@ void close(buffer *close_buffer);
 void prompt_save();
 void load_options();
 void resize_window();
+bool run_command();
 
 void draw_screen();
 void refresh_screen();
