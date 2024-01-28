@@ -1,0 +1,6 @@
+#define CTRL_RIGHT	567
+#define CTRL_LEFT	552
+#define CTRL_HOME	542
+#define CTRL_END	537
+#define CTRL_PGDOWN	557
+#define CTRL_PGUP	562
