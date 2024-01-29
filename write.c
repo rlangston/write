@@ -4,6 +4,7 @@
 #include <ctype.h>
 
 #include "write.h"
+#include "keymap.h"
 
 // Window size
 int windowx, windowy;
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
 		new_file("blank.txt");
 	}
 
+	// Make sure the first buffer in the chain is the current buffer
 	first_buffer = current_buffer;
 
 	// Create message buffer
@@ -63,11 +65,16 @@ int main(int argc, char *argv[])
 
 	init();
 	move_file_home();
-	
+	// char m[255];
+
+
 	while(current_buffer != NULL)
 	{
 		refresh_screen();
 		ch = getch();
+
+		// sprintf(m, "Key %d", ch);
+		// message(m);
 		if (ch == CTRL('q'))
 			break;
 		switch (ch)
@@ -85,10 +92,10 @@ int main(int argc, char *argv[])
 			case KEY_DOWN:
 				move_down();
 				break;
-			case 561: // CTRL-right
+			case CTRL_RIGHT: 
 				move_word_right();
 				break;
-			case 546: // CTRL-right
+			case CTRL_LEFT: 
 				move_word_left();
 				break;
 			case KEY_NPAGE:
@@ -103,14 +110,14 @@ int main(int argc, char *argv[])
 			case KEY_HOME:
 				move_home();
 				break;
-			case 536: // CTRL-HOME
+			case CTRL_HOME: // CTRL-HOME
 				move_file_home();
 				break;
-			case 531: // CTRL-END
+			case CTRL_END: // CTRL-END
 				move_file_end();
 				break;
 
-			case 551: // CTRL-PGDOWN
+			case CTRL_PGDOWN: // CTRL-PGDOWN
 				if (current_buffer->next != NULL) current_buffer = current_buffer->next;
 				else current_buffer = first_buffer;
 				break;
@@ -258,7 +265,9 @@ void init()
 void shutdown()
 {
 	delete_lines(pastebuffer); // Clear the copy buffer
-	// close(message_buffer); // Close the message buffer
+	delete_lines(message_buffer->first_line); // Clear the message buffer
+
+	free(message_buffer);
 
 	// Close any open buffers
 	while (current_buffer != NULL)
@@ -467,7 +476,7 @@ void update_status()
 {
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
-	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + +current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx);
+	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx);
 	wclrtoeol(statusscr);
 
 	if (message_timer > 0)
@@ -543,6 +552,7 @@ void draw_line(int y, Line *line)
 
 	wmove(textscr, y, current_buffer->margin_left);
 	int x = 0;
+	int dx = 0;
 
 	while ((x + current_buffer->offsetx < line->length) && x < windowx - current_buffer->margin_left)
 	{
@@ -551,11 +561,19 @@ void draw_line(int y, Line *line)
 			wattron(textscr, COLOR_PAIR(2));
 			waddch(textscr, line->text[x + current_buffer->offsetx]);
 			wattroff(textscr, COLOR_PAIR(2));
+			dx++;
 		}
 		else if (line->text[x + current_buffer->offsetx] == '\t')
-			for (int i = 0; i < o_tabsize; i++) waddch(textscr, ' ');
+		{
+			int tabcount = o_tabsize - (dx + current_buffer->offsetx) % o_tabsize;
+			for (int i = 0; i < tabcount; i++) waddch(textscr, ' ');
+			dx += tabcount;
+		}
 		else
+		{
 			waddch(textscr, line->text[x + current_buffer->offsetx]);
+			dx++;
+		}
 		x++;
 	}
 	wclrtoeol(textscr);
@@ -570,8 +588,10 @@ int cxtodx(Line *line, int cx)
 {
 	int dx = 0;
 	for (int c = 0; c < cx; c++)
-		if (line->text[c] == '\t') dx += o_tabsize;
+	{
+		if (line->text[c] == '\t') dx += o_tabsize - c % o_tabsize;
 		else dx += 1;
+	}
 	return dx;
 }
 
@@ -582,7 +602,7 @@ int dxtocx(Line *line, int dx)
 	while (c < dx)
 	{
 		if (line->text[c] == '\t')
-			c += o_tabsize;
+			c += o_tabsize - c % o_tabsize;
 		else
 			c += 1;
 		cx++;
@@ -889,7 +909,8 @@ void new_file(char *new_filename)
 void load_options()
 {
     char *read_line = NULL;
-    char option[20], value[20];
+	char *p;
+	char *o;
 	size_t max_length = 0;
 
     // Set default options
@@ -908,10 +929,18 @@ void load_options()
         if (strlen(read_line) == 1) continue;
         if (read_line[0] == '#') continue;
 
-        sscanf(read_line, "%20s %20s", option, value);
-
-        if (strcmp(option, "TABSIZE") == 0) o_tabsize = atoi(value);
-        else if (strcmp(option, "MESSAGE_COOLDOWN") == 0) o_messagecooldown = atoi(value);
+		while (p = strtok(read_line, " "))
+		{
+			if (strcmp(p, "set") == 0)
+			{
+				// Need two more 
+				if (!(p = strtok(NULL, " "))) break;
+				if (!(o = strtok(NULL, " "))) break;
+				if (strcmp(p, "tabsize") == 0) o_tabsize = atoi(o);
+				else if (strcmp(p, "message_cooldown") == 0) o_messagecooldown = atoi(o);
+				break;
+			}
+		}
 	}
 
  	free(read_line);
