@@ -6,6 +6,7 @@
 // Options
 int o_tabsize;
 int o_messagecooldown;
+bool o_show_linenumbers;
 
 // Colours
 #define COL_WHITEBLUE 1

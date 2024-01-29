@@ -21,7 +21,6 @@ char *filename;
 #define MODE_EDIT 1
 #define MODE_COMMAND 2
 
-bool show_linenumbers = false;
 int display_cx;
 
 buffer *current_buffer = NULL;
@@ -498,7 +497,7 @@ void message(char *msg)
 
 void toggle_linenumbers()
 {
-	show_linenumbers = !show_linenumbers;
+	o_show_linenumbers = !o_show_linenumbers;
 	return;
 }
 
@@ -507,7 +506,7 @@ void draw_screen()
 	werase(textscr);
 
 	// Calculate current_buffer->margin_left
-	if (show_linenumbers)
+	if (o_show_linenumbers)
 	{
 		current_buffer->margin_left = 2;
 		int temp_lines = current_buffer->lines;
@@ -544,7 +543,7 @@ void refresh_screen()
 void draw_line(int y, Line *line)
 {
 	// Draw line number
-	if (show_linenumbers)
+	if (o_show_linenumbers)
 	{
 		wmove(textscr, y, 0);
 		mvwprintw(textscr, y, 0, "%d", y + current_buffer->offsety + 1);
@@ -916,6 +915,7 @@ void load_options()
     // Set default options
     o_tabsize = 4;
     o_messagecooldown = 2;
+	o_show_linenumbers = false;
 
     char filename[256];
     strcat(strcpy(filename, getenv("HOME")), "/.write");
@@ -938,6 +938,7 @@ void load_options()
 				if (!(o = strtok(NULL, " "))) break;
 				if (strcmp(p, "tabsize") == 0) o_tabsize = atoi(o);
 				else if (strcmp(p, "message_cooldown") == 0) o_messagecooldown = atoi(o);
+				else if (strcmp(p, "show_linenumbers") == 0) o_show_linenumbers = atoi(o);
 				break;
 			}
 		}
