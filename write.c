@@ -231,18 +231,15 @@ void init()
 	// Initialise screen and get dimensions
 	initscr();
 	set_escdelay(1);
-	resize_window();
 
-	textscr = subwin(stdscr, windowy, windowx, 0, 0);
-	statusscr = subwin(stdscr, 1, windowx, windowy, 0);
-	commandscr = subwin(stdscr, 1, windowx, windowy + 1, 0);
-	current_buffer->margin_left = 0;
-	
 	start_color();
 	init_pair(COL_WHITEBLUE, COLOR_WHITE, COLOR_BLUE);
 	init_pair(COL_GREENBLACK, COLOR_GREEN, COLOR_BLACK);
-	wbkgd(statusscr, COLOR_PAIR(COL_WHITEBLUE));
 
+	resize_window();
+
+	current_buffer->margin_left = 0;
+	
 	// Set up ncurses
 	raw();
 	noecho();
@@ -1044,6 +1041,18 @@ void resize_window()
 {
 	getmaxyx(stdscr, windowy, windowx);
 	windowy -= 2; // Reduce for status bar and message buffer
+
+	// Resize all windows
+	textscr = subwin(stdscr, windowy, windowx, 0, 0);
+	statusscr = subwin(stdscr, 1, windowx, windowy, 0);
+	commandscr = subwin(stdscr, 1, windowx, windowy + 1, 0);
+
+	// Set background for status line
+	wbkgd(statusscr, COLOR_PAIR(COL_WHITEBLUE));
+
+	// Clear command line
+	werase(commandscr);
+	wrefresh(commandscr);
 }
 
 bool run_command(char *s)
