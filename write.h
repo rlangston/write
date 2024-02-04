@@ -11,6 +11,8 @@ bool o_show_linenumbers;
 // Colours
 #define COL_WHITEBLUE 1
 #define COL_GREENBLACK 2
+#define COL_BLACKWHITE 3
+#define COL_BLUEWHITE 4
 
 // Line structure (a double linked list)
 typedef struct Line {
@@ -20,18 +22,30 @@ typedef struct Line {
 	char *text;
 } Line;
 
+typedef struct Select_mark {
+	Line *line;
+	int x;
+	int y;
+} Select_mark;
+
+typedef struct Undo_mark {
+	Line *line;
+	int x;
+} Undo_mark;
+
 typedef struct buffer {
 	char *filename;
 	Line *first_line;
 	Line *current_line;
 	Line *first_screen_line;
-	ssize_t lines;
+	int lines;
 	int cx;
 	int cy;
 	int margin_left;
 	int offsetx;
 	int offsety;
 	bool modified;
+	Select_mark select_mark;
 	struct buffer *next;
 } buffer;
 
@@ -53,13 +67,17 @@ int cxtodx(Line *line, int cx);
 int dxtocx(Line *line, int dx);
 
 void check_boundx();
-void goto_line(ssize_t line);
+void goto_line(int line);
 void move_lines_up(int count);
 void move_lines_down(int count);
 
+void mark(buffer *b);
+void clear_mark(buffer *b);
 void copy_line();
 void cut_line();
 void paste_line();
+void get_select_extents(buffer *b, Select_mark *start, Select_mark *end);
+
 bool find(char *find_string, Line *start_line, int start_x);
 void delete_line(Line *line);
 void delete_lines(Line *start_line);

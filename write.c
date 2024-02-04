@@ -177,6 +177,16 @@ int main(int argc, char *argv[])
 				break;
 
 			// Cut and paste
+			case CTRL('b'): // Mark
+				if (current_buffer->select_mark.line)
+				{
+					clear_mark(current_buffer);
+				}
+				else
+				{
+					mark(current_buffer);
+				}
+				break;
 			case CTRL('c'): // Cut
 				copy_line();
 				break;
@@ -235,6 +245,8 @@ void init()
 	start_color();
 	init_pair(COL_WHITEBLUE, COLOR_WHITE, COLOR_BLUE);
 	init_pair(COL_GREENBLACK, COLOR_GREEN, COLOR_BLACK);
+	init_pair(COL_BLACKWHITE, COLOR_BLACK, COLOR_WHITE);
+	init_pair(COL_BLUEWHITE, COLOR_BLUE, COLOR_WHITE);
 
 	resize_window();
 
@@ -424,7 +436,7 @@ void check_boundx()
 	return;
 }
 
-void goto_line(ssize_t line)
+void goto_line(int line)
 {
 	if (line > current_buffer->lines) return;
 	move_file_home();
@@ -472,7 +484,8 @@ void update_status()
 {
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
-	mvwprintw(statusscr, 0, 0, "%s%c L%d/%lu C%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx);
+	mvwprintw(statusscr, 0, 0, "%s%c L%d/%d C%d M%d,%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx, current_buffer->select_mark.x, current_buffer->select_mark.y);
+	// mvwprintw(statusscr, 0, 0, "%s%c CX%d LL%d", current_buffer->filename, modified_indicator, current_buffer->cx, current_buffer->current_line->length);
 	wclrtoeol(statusscr);
 
 	if (message_timer > 0)
@@ -550,16 +563,37 @@ void draw_line(int y, Line *line)
 	int x = 0;
 	int dx = 0;
 
+	bool active_selection = false;
+	if (current_buffer->select_mark.line != NULL)
+		active_selection = true;
+
+	Select_mark select_start;
+	Select_mark select_end;
+	get_select_extents(current_buffer, &select_start, &select_end);
+
 	while ((x + current_buffer->offsetx < line->length) && x < windowx - current_buffer->margin_left)
 	{
-		if (isdigit(line->text[x + current_buffer->offsetx]))
-		{
-			wattron(textscr, COLOR_PAIR(2));
-			waddch(textscr, line->text[x + current_buffer->offsetx]);
-			wattroff(textscr, COLOR_PAIR(2));
-			dx++;
-		}
-		else if (line->text[x + current_buffer->offsetx] == '\t')
+		if (active_selection && (
+								(y + current_buffer->offsety > select_start.y && y + current_buffer->offsety < select_end.y) ||
+								(select_start.y == select_end.y && y + current_buffer->offsety == select_start.y && (x + current_buffer->offsetx >= select_start.x && x + current_buffer->offsetx < select_end.x)) ||
+								(y + current_buffer->offsety == select_start.y && y + current_buffer->offsety < select_end.y && x + current_buffer->offsetx >= select_start.x) ||
+								(y + current_buffer->offsety == select_end.y && y + current_buffer->offsety > select_start.y && x + current_buffer->offsetx < select_end.x)
+								))
+			wattron(textscr, COLOR_PAIR(COL_BLACKWHITE));
+		else
+			wattroff(textscr, COLOR_PAIR(COL_BLACKWHITE));
+		// Turn off inversion if on cursor
+		// if ((current_buffer->cx == x + current_buffer->offsetx) && (current_buffer->cy == y + current_buffer->offsety))
+		// 	wattroff(textscr, COLOR_PAIR(COL_BLACKWHITE));
+
+		// if (isdigit(line->text[x + current_buffer->offsetx]))
+		// {
+		// 	wattron(textscr, COLOR_PAIR(2));
+		// 	waddch(textscr, line->text[x + current_buffer->offsetx]);
+		// 	wattroff(textscr, COLOR_PAIR(2));
+		// 	dx++;
+		// }
+		if (line->text[x + current_buffer->offsetx] == '\t')
 		{
 			int tabcount = o_tabsize - (dx + current_buffer->offsetx) % o_tabsize;
 			for (int i = 0; i < tabcount; i++) waddch(textscr, ' ');
@@ -580,6 +614,7 @@ void draw_line(int y, Line *line)
 	return;
 }
 
+// Convert current position in line to corresponding display position on screen
 int cxtodx(Line *line, int cx)
 {
 	int dx = 0;
@@ -591,6 +626,7 @@ int cxtodx(Line *line, int cx)
 	return dx;
 }
 
+// Convert current display position to corresponding position in line
 int dxtocx(Line *line, int dx)
 {
 	int cx = 0;
@@ -757,10 +793,48 @@ void delete()
 	return;
 }
 
+void mark(buffer *b)
+{
+	b->select_mark.line = current_buffer->current_line;
+	b->select_mark.x = current_buffer->cx;
+	b->select_mark.y = current_buffer->cy;
+}
+
+void clear_mark(buffer *b)
+{
+	b->select_mark.line = NULL;
+	b->select_mark.x = 0;
+	b->select_mark.y = 0;
+}
+
+void get_select_extents(buffer *b, Select_mark *start, Select_mark *end)
+{
+	if ((b->cy < b->select_mark.y) || ((b->cy == b->select_mark.y) && (b->cx < b->select_mark.x)))
+	{
+		start->x = b->cx;
+		start->y = b->cy;
+		end->x = b->select_mark.x;
+		end->y = b->select_mark.y;
+
+	}
+	else
+	{
+		start->x = b->select_mark.x;
+		start->y = b->select_mark.y;
+		end->x = b->cx;
+		end->y = b->cy;
+	}
+}
+
 void copy_line()
 {
 	delete_lines(pastebuffer); // clear the buffer completely
 	pastebuffer = insert_line(NULL, NULL, current_buffer->current_line->text, current_buffer->current_line->length);
+}
+
+void copy()
+{
+
 }
 
 void cut_line()
@@ -814,6 +888,17 @@ void paste_line()
 
 void delete_line(Line *line)
 {
+	// Delete selection mark if the line with the mark is deleted
+	if (current_buffer->select_mark.line == line)
+	{
+		clear_mark(current_buffer);
+	}
+	// Adjust the mark cy if it is after the deleted line
+	else if (current_buffer->cy < current_buffer->select_mark.y)
+	{
+		current_buffer->select_mark.y--;
+	}
+
 	if (line == current_buffer->first_line) current_buffer->first_line = line->next;
 	if (line == current_buffer->first_screen_line) current_buffer->first_screen_line = line->next;
 
@@ -862,7 +947,7 @@ bool open_file(char *open_filename)
 {
 	char *read_line = NULL;
 	Line *line = NULL;
-	ssize_t length = 0;
+	long length = 0;
 	size_t max_length = 0;
 
 	FILE *fp = fopen(open_filename, "r");
@@ -926,7 +1011,7 @@ void load_options()
         if (strlen(read_line) == 1) continue;
         if (read_line[0] == '#') continue;
 
-		while (p = strtok(read_line, " "))
+		while ((p = strtok(read_line, " ")))
 		{
 			if (strcmp(p, "set") == 0)
 			{
@@ -969,6 +1054,7 @@ buffer *add_sbuffer()
 	new_buffer->first_screen_line = NULL;
 	new_buffer->lines = 0;
 	new_buffer->filename = NULL;
+	clear_mark(new_buffer);
 	return new_buffer;
 }
 
