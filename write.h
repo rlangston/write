@@ -75,7 +75,8 @@ void mark(buffer *b);
 void clear_mark(buffer *b);
 void copy_line();
 void cut_line();
-void paste_line();
+void copy();
+void paste();
 void get_select_extents(buffer *b, Select_mark *start, Select_mark *end);
 
 bool find(char *find_string, Line *start_line, int start_x);

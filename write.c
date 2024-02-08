@@ -187,15 +187,19 @@ int main(int argc, char *argv[])
 					mark(current_buffer);
 				}
 				break;
-			case CTRL('c'): // Cut
-				copy_line();
+			case CTRL('c'): // Copy
+				if (current_buffer->select_mark.line == NULL)
+					copy_line();
+				else
+					copy();
 				break;
 			case CTRL('x'): // Cut
-				cut_line();
+				if (current_buffer->select_mark.line == NULL)
+					cut_line();
 				current_buffer->modified = true;
 				break;
 			case CTRL('v'): // Paste
-				paste_line();
+				paste();
 				current_buffer->modified = true;
 				break;
 
@@ -267,7 +271,10 @@ void init()
 
 	mode = MODE_EDIT;
 
-	return;
+	// Set up  paste buffer
+	paste_buffer = add_buffer();
+	paste_buffer->first_line = NULL;
+	paste_buffer->lines = 0;
 }
 
 void shutdown()
@@ -484,7 +491,11 @@ void update_status()
 {
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
-	mvwprintw(statusscr, 0, 0, "%s%c L%d/%d C%d M%d,%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx, current_buffer->select_mark.x, current_buffer->select_mark.y);
+
+	if (paste_buffer->first_line)
+		mvwprintw(statusscr, 0, 0, "%s%c L%d/%d C%d M%d,%d PBL%d,%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx, current_buffer->select_mark.x, current_buffer->select_mark.y, paste_buffer->lines, paste_buffer->first_line->length);
+	else
+		mvwprintw(statusscr, 0, 0, "%s%c L%d/%d C%d M%d,%d PBL%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx, current_buffer->select_mark.x, current_buffer->select_mark.y, paste_buffer->lines);
 	// mvwprintw(statusscr, 0, 0, "%s%c CX%d LL%d", current_buffer->filename, modified_indicator, current_buffer->cx, current_buffer->current_line->length);
 	wclrtoeol(statusscr);
 
@@ -745,6 +756,9 @@ Line *insert_line(Line *prev, Line *next, char *src, size_t length)
 void enter()
 {
 	insert_line(current_buffer->current_line, current_buffer->current_line->next, current_buffer->current_line->text + current_buffer->cx, current_buffer->current_line->length - current_buffer->cx);
+	// Increment select mark row if it is after the new row inserted
+	if (current_buffer->select_mark.y > current_buffer->cy)
+		current_buffer->select_mark.y++;
 	current_buffer->lines++;
 	current_buffer->current_line->length = current_buffer->cx;
 	allocate_string(current_buffer->current_line, current_buffer->current_line->length + 1);
@@ -813,16 +827,19 @@ void get_select_extents(buffer *b, Select_mark *start, Select_mark *end)
 	{
 		start->x = b->cx;
 		start->y = b->cy;
+		start->line = b->current_line;
 		end->x = b->select_mark.x;
 		end->y = b->select_mark.y;
-
+		end->line = b->select_mark.line;
 	}
 	else
 	{
 		start->x = b->select_mark.x;
 		start->y = b->select_mark.y;
+		start->line = b->select_mark.line;
 		end->x = b->cx;
 		end->y = b->cy;
+		end->line = b->current_line;
 	}
 }
 
@@ -834,7 +851,33 @@ void copy_line()
 
 void copy()
 {
+	Line *dest_line = NULL;
+	Line *source_line;
+	Select_mark select_start;
+	Select_mark select_end;
 
+	get_select_extents(current_buffer, &select_start, &select_end);
+
+	// Clear the paste buffer
+	delete_lines(paste_buffer->first_line); 
+	paste_buffer->lines = 0;
+
+	source_line = select_start.line;
+	// TODO deal with first line, and then advance current line.
+	// TODO check if first line is equal to end line
+	// Loop until current line is the end line
+	while (source_line != select_end.line)
+	{
+		dest_line = insert_line(dest_line, NULL, source_line->text, source_line->length);
+		paste_buffer->lines += 1;
+		if (paste_buffer->first_line == NULL)
+			paste_buffer->first_line = dest_line;
+		source_line = source_line->next;
+	}
+	// TODO deal with end line
+
+	// Clear the mark when we are done with copying
+	clear_mark(current_buffer);
 }
 
 void cut_line()
@@ -867,23 +910,35 @@ void cut_line()
 	return;
 }
 
-void paste_line()
+void paste()
 {
-	current_buffer->current_line = insert_line(current_buffer->current_line->prev, current_buffer->current_line, pastebuffer->text, pastebuffer->length);
-	current_buffer->lines++;
-	if (current_buffer->current_line->prev == NULL)
+	Line *source_line = paste_buffer->first_line;
+	while (source_line != NULL)
 	{
-		current_buffer->first_line = current_buffer->current_line;
-	}
+		insert_line(current_buffer->current_line->prev, current_buffer->current_line, source_line->text, source_line->length);
+		// Increment select mark row if it is after the new row inserted
+		if (current_buffer->select_mark.y > current_buffer->cy)
+			current_buffer->select_mark.y++;
 
-	if (current_buffer->cy == 0) // If on top row of screen, have just pasted above
+		// If previously the first line then make the new line the first line
+		if (current_buffer->current_line->prev == NULL)
+			current_buffer->first_line = current_buffer->current_line;
+
+		// If on top row of screen, have just pasted above
+		if (current_buffer->cy == 0) 
+			current_buffer->first_screen_line = current_buffer->first_screen_line->prev;
+
+		current_buffer->lines++;
+		current_buffer->cy++;
+		source_line = source_line->next;
+	}
+	// If on top row of screen, have just pasted above
+	if (current_buffer->cy == 0) 
 	{
 		current_buffer->first_screen_line = current_buffer->first_screen_line->prev;
 		current_buffer->offsety -= 1;
 	}
-
 	move_home();
-	return;
 }
 
 void delete_line(Line *line)
@@ -984,7 +1039,6 @@ void new_file(char *new_filename)
 	current_buffer->first_line = insert_line(NULL, NULL, NULL, 0);
 	current_buffer->lines = 1;
 	current_buffer->modified = false;
-	return;
 }
 
 void load_options()
