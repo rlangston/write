@@ -855,6 +855,8 @@ void copy()
 	Line *source_line;
 	Select_mark select_start;
 	Select_mark select_end;
+	int startx = 0;
+	int endx = 0;
 
 	get_select_extents(current_buffer, &select_start, &select_end);
 
@@ -863,18 +865,26 @@ void copy()
 	paste_buffer->lines = 0;
 
 	source_line = select_start.line;
-	// TODO deal with first line, and then advance current line.
-	// TODO check if first line is equal to end line
+
 	// Loop until current line is the end line
-	while (source_line != select_end.line)
+	while (source_line != select_end.line->next)
 	{
-		dest_line = insert_line(dest_line, NULL, source_line->text, source_line->length);
+		if (source_line == select_start.line)
+			startx = select_start.x;
+		else
+			startx = 0;
+		if (source_line == select_end.line)
+			endx = select_end.x + 1;
+		else
+			endx = source_line->length;
+
+		dest_line = insert_line(dest_line, NULL, source_line->text + startx, endx - startx);
+
 		paste_buffer->lines += 1;
 		if (paste_buffer->first_line == NULL)
 			paste_buffer->first_line = dest_line;
 		source_line = source_line->next;
 	}
-	// TODO deal with end line
 
 	// Clear the mark when we are done with copying
 	clear_mark(current_buffer);
