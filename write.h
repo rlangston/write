@@ -16,7 +16,7 @@ bool o_show_linenumbers;
 
 // Line structure (a double linked list)
 typedef struct Line {
-	size_t length;
+	int length;
 	struct Line *prev;
 	struct Line *next;
 	char *text;

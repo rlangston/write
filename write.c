@@ -59,21 +59,15 @@ int main(int argc, char *argv[])
 	message_buffer->lines = 0;
 
 	message("");
-	// char *message = "";
-	// message_buffer->first_line = insert_line(NULL, message_buffer->first_line, message, strlen(message) + 1);
-
 	init();
 	move_file_home();
 	// char m[255];
-
 
 	while(current_buffer != NULL)
 	{
 		refresh_screen();
 		ch = getch();
 
-		// sprintf(m, "Key %d", ch);
-		// message(m);
 		if (ch == CTRL('q'))
 			break;
 		switch (ch)
@@ -492,11 +486,7 @@ void update_status()
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
 
-	if (paste_buffer->first_line)
-		mvwprintw(statusscr, 0, 0, "%s%c L%d/%d C%d M%d,%d PBL%d,%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx, current_buffer->select_mark.x, current_buffer->select_mark.y, paste_buffer->lines, paste_buffer->first_line->length);
-	else
-		mvwprintw(statusscr, 0, 0, "%s%c L%d/%d C%d M%d,%d PBL%d", current_buffer->filename, modified_indicator, current_buffer->cy + current_buffer->offsety + 1, current_buffer->lines, current_buffer->cx, current_buffer->select_mark.x, current_buffer->select_mark.y, paste_buffer->lines);
-	// mvwprintw(statusscr, 0, 0, "%s%c CX%d LL%d", current_buffer->filename, modified_indicator, current_buffer->cx, current_buffer->current_line->length);
+	mvwprintw(statusscr, 0, 0, "%s%c CX%d LL%d %d", current_buffer->filename, modified_indicator, current_buffer->cx, current_buffer->current_line->length, ch);
 	wclrtoeol(statusscr);
 
 	if (message_timer > 0)
@@ -862,6 +852,7 @@ void copy()
 
 	// Clear the paste buffer
 	delete_lines(paste_buffer->first_line); 
+	paste_buffer->first_line = NULL;
 	paste_buffer->lines = 0;
 
 	source_line = select_start.line;
@@ -874,7 +865,11 @@ void copy()
 		else
 			startx = 0;
 		if (source_line == select_end.line)
+		{
 			endx = select_end.x + 1;
+			if (endx - startx > source_line->length)
+				endx--;
+		}
 		else
 			endx = source_line->length;
 
@@ -923,32 +918,26 @@ void cut_line()
 void paste()
 {
 	Line *source_line = paste_buffer->first_line;
+	
+	// If nothing in paste buffer then return
+	if (!source_line)
+		return;
+
+	// Paste first line into current line
+	insert_string(current_buffer->current_line, current_buffer->cx, source_line->text, source_line->length);
+	current_buffer->cx += source_line->length;
+	source_line = source_line->next;
+
 	while (source_line != NULL)
 	{
-		insert_line(current_buffer->current_line->prev, current_buffer->current_line, source_line->text, source_line->length);
-		// Increment select mark row if it is after the new row inserted
-		if (current_buffer->select_mark.y > current_buffer->cy)
-			current_buffer->select_mark.y++;
-
-		// If previously the first line then make the new line the first line
-		if (current_buffer->current_line->prev == NULL)
-			current_buffer->first_line = current_buffer->current_line;
-
-		// If on top row of screen, have just pasted above
-		if (current_buffer->cy == 0) 
-			current_buffer->first_screen_line = current_buffer->first_screen_line->prev;
-
-		current_buffer->lines++;
-		current_buffer->cy++;
+		// Use enter() and insert_string() in case pasting in middle of line and need to preserve rest of  text
+		enter();
+		insert_string(current_buffer->current_line, current_buffer->cx, source_line->text, source_line->length);
+		current_buffer->cx += source_line->length;
 		source_line = source_line->next;
 	}
-	// If on top row of screen, have just pasted above
-	if (current_buffer->cy == 0) 
-	{
-		current_buffer->first_screen_line = current_buffer->first_screen_line->prev;
-		current_buffer->offsety -= 1;
-	}
-	move_home();
+
+	check_boundx();
 }
 
 void delete_line(Line *line)
