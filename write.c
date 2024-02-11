@@ -190,6 +190,8 @@ int main(int argc, char *argv[])
 			case CTRL('x'): // Cut
 				if (current_buffer->select_mark.line == NULL)
 					cut_line();
+				else
+					cut();
 				current_buffer->modified = true;
 				break;
 			case CTRL('v'): // Paste
@@ -885,6 +887,11 @@ void copy()
 	clear_mark(current_buffer);
 }
 
+void cut()
+{
+	return;
+}
+
 void cut_line()
 {
 	delete_lines(pastebuffer); // clear the buffer completely
@@ -932,7 +939,8 @@ void paste()
 	{
 		// Use enter() and insert_string() in case pasting in middle of line and need to preserve rest of  text
 		enter();
-		insert_string(current_buffer->current_line, current_buffer->cx, source_line->text, source_line->length);
+		if (source_line->length > 0)
+			insert_string(current_buffer->current_line, current_buffer->cx, source_line->text, source_line->length);
 		current_buffer->cx += source_line->length;
 		source_line = source_line->next;
 	}

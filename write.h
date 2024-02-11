@@ -76,6 +76,7 @@ void clear_mark(buffer *b);
 void copy_line();
 void cut_line();
 void copy();
+void cut();
 void paste();
 void get_select_extents(buffer *b, Select_mark *start, Select_mark *end);
 
