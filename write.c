@@ -830,7 +830,7 @@ void delete_selection()
 			delete_line(select_start.line->next);
 		select_start.line->length = select_start.x;
 		allocate_string(select_start.line, select_start.line->length);
-		if (select_end.x > 0)
+		if (select_start.line->next->length > 0)
 			insert_string(select_start.line, select_start.line->length, select_start.line->next->text + select_end.x + 1, select_start.line->next->length - select_end.x - 1);
 		delete_line(select_start.line->next);
 	}
