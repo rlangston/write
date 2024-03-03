@@ -882,8 +882,17 @@ void get_select_extents(buffer *b, Select_mark *start, Select_mark *end)
 
 void copy_line()
 {
-	delete_lines(pastebuffer); // clear the buffer completely
-	pastebuffer = insert_line(NULL, NULL, current_buffer->current_line->text, current_buffer->current_line->length);
+	// Clear the paste buffer
+	delete_lines(paste_buffer->first_line); 
+
+	// Copy current line into paste buffer	
+	Line *dest_line = NULL;
+	dest_line = insert_line(dest_line, NULL, current_buffer->current_line->text, current_buffer->current_line->length);
+	paste_buffer->first_line = dest_line;
+
+	// Insert a blank line for carriage return
+	dest_line = insert_line(dest_line, NULL, current_buffer->current_line->text, 0);
+	paste_buffer->lines = 2;
 }
 
 void copy()
