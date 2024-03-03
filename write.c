@@ -186,13 +186,17 @@ int main(int argc, char *argv[])
 					copy_line();
 				else
 					copy();
+
+				clear_mark(current_buffer);
 				break;
+
 			case CTRL('x'): // Cut
 				if (current_buffer->select_mark.line == NULL)
 					cut_line();
 				else
 					cut();
 				current_buffer->modified = true;
+				clear_mark(current_buffer);
 				break;
 			case CTRL('v'): // Paste
 				paste();
@@ -223,6 +227,7 @@ int main(int argc, char *argv[])
 				else
 					delete();
 				current_buffer->modified = true;
+				clear_mark(current_buffer);
 				break;
 			default:
 				if ((ch > 27 && ch < 256) || (ch == '\t')) // Ignore control characters
@@ -836,8 +841,6 @@ void delete_selection()
 		current_buffer->lines--;
 	}
 
-	// Clear the mark when we are done with deleting
-	clear_mark(current_buffer);
 	check_boundx();
 }
 
@@ -924,14 +927,12 @@ void copy()
 			paste_buffer->first_line = dest_line;
 		source_line = source_line->next;
 	}
-
-	// Clear the mark when we are done with copying
-	clear_mark(current_buffer);
 }
 
 void cut()
 {
-	return;
+	copy();
+	delete_selection();
 }
 
 void cut_line()
