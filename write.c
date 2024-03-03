@@ -488,7 +488,7 @@ void update_status()
 	char modified_indicator = ' ';
 	if (current_buffer->modified) modified_indicator = '*';
 
-	mvwprintw(statusscr, 0, 0, "%s%c CX%d LL%d %d", current_buffer->filename, modified_indicator, current_buffer->cx, current_buffer->current_line->length, ch);
+	mvwprintw(statusscr, 0, 0, "%s%c CX%d CY%d OX%d OY%d LL%d %d", current_buffer->filename, modified_indicator, current_buffer->cx, current_buffer->cy, current_buffer->offsetx, current_buffer->offsety, current_buffer->current_line->length, ch);
 	wclrtoeol(statusscr);
 
 	if (message_timer > 0)
@@ -784,7 +784,12 @@ void backspace()
 
 void delete()
 {
-	if (current_buffer->cx < current_buffer->current_line->length)
+	// Delete selection if there is a select mark
+	if (current_buffer->select_mark.line != NULL)
+	{
+		delete_selection();
+	}
+	else if (current_buffer->cx < current_buffer->current_line->length)
 	{
 		memmove(current_buffer->current_line->text + current_buffer->cx, current_buffer->current_line->text + current_buffer->cx + 1, current_buffer->current_line->length - current_buffer->cx + 1);
 		current_buffer->current_line->length--;
@@ -799,11 +804,49 @@ void delete()
 	return;
 }
 
+void delete_selection()
+{
+	Select_mark select_start;
+	Select_mark select_end;
+
+	get_select_extents(current_buffer, &select_start, &select_end);
+	// Line *select_end_next_line = select_end.line->next;
+
+	goto_line(select_start.y + 1);
+	current_buffer->cx = select_start.x;
+	
+	if (select_start.line == select_end.line)
+	{
+		memmove(select_start.line->text + select_start.x, select_start.line->text + select_end.x + 1, select_start.line->length - select_end.x);
+		select_start.line->length -= (select_end.x - select_start.x) + 1;
+		allocate_string(select_start.line, select_start.line->length);
+	}
+
+	else
+	{	
+		while (select_start.line->next != select_end.line)
+		{
+			delete_line(select_start.line->next);
+			current_buffer->lines--;
+		}
+		select_start.line->length = select_start.x;
+		allocate_string(select_start.line, select_start.line->length);
+		if (select_end.x > 0)
+			insert_string(select_start.line, select_start.line->length, select_start.line->next->text + select_end.x + 1, select_start.line->next->length - select_end.x - 1);
+		delete_line(select_start.line->next);
+		current_buffer->lines--;
+	}
+
+	// Clear the mark when we are done with deleting
+	clear_mark(current_buffer);
+	check_boundx();
+}
+
 void mark(buffer *b)
 {
 	b->select_mark.line = current_buffer->current_line;
 	b->select_mark.x = current_buffer->cx;
-	b->select_mark.y = current_buffer->cy;
+	b->select_mark.y = current_buffer->cy + current_buffer->offsety;
 }
 
 void clear_mark(buffer *b)
@@ -815,10 +858,10 @@ void clear_mark(buffer *b)
 
 void get_select_extents(buffer *b, Select_mark *start, Select_mark *end)
 {
-	if ((b->cy < b->select_mark.y) || ((b->cy == b->select_mark.y) && (b->cx < b->select_mark.x)))
+	if ((b->cy + b->offsety < b->select_mark.y) || ((b->cy + b->offsety == b->select_mark.y) && (b->cx < b->select_mark.x)))
 	{
 		start->x = b->cx;
-		start->y = b->cy;
+		start->y = b->cy + b->offsety ;
 		start->line = b->current_line;
 		end->x = b->select_mark.x;
 		end->y = b->select_mark.y;
@@ -830,7 +873,7 @@ void get_select_extents(buffer *b, Select_mark *start, Select_mark *end)
 		start->y = b->select_mark.y;
 		start->line = b->select_mark.line;
 		end->x = b->cx;
-		end->y = b->cy;
+		end->y = b->cy + b->offsety ;
 		end->line = b->current_line;
 	}
 }

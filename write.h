@@ -78,6 +78,7 @@ void cut_line();
 void copy();
 void cut();
 void paste();
+void delete_selection();
 void get_select_extents(buffer *b, Select_mark *start, Select_mark *end);
 
 bool find(char *find_string, Line *start_line, int start_x);
