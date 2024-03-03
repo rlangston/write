@@ -217,7 +217,11 @@ int main(int argc, char *argv[])
 				current_buffer->modified = true;
 				break;
 			case KEY_DC:
-				delete();
+				// Delete selection if there is a select mark
+				if (current_buffer->select_mark.line != NULL)
+					delete_selection();
+				else
+					delete();
 				current_buffer->modified = true;
 				break;
 			default:
@@ -784,12 +788,7 @@ void backspace()
 
 void delete()
 {
-	// Delete selection if there is a select mark
-	if (current_buffer->select_mark.line != NULL)
-	{
-		delete_selection();
-	}
-	else if (current_buffer->cx < current_buffer->current_line->length)
+	if (current_buffer->cx < current_buffer->current_line->length)
 	{
 		memmove(current_buffer->current_line->text + current_buffer->cx, current_buffer->current_line->text + current_buffer->cx + 1, current_buffer->current_line->length - current_buffer->cx + 1);
 		current_buffer->current_line->length--;
