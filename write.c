@@ -786,7 +786,6 @@ void backspace()
 		move_end();
 		insert_string(current_buffer->current_line, current_buffer->current_line->length, current_buffer->current_line->next->text, current_buffer->current_line->next->length);
 		delete_line(current_buffer->current_line->next);
-		current_buffer->lines--;
 	}
 	return;
 }
@@ -803,7 +802,6 @@ void delete()
 	{
 		insert_string(current_buffer->current_line, current_buffer->current_line->length, current_buffer->current_line->next->text, current_buffer->current_line->next->length);
 		delete_line(current_buffer->current_line->next);
-		current_buffer->lines--;
 	}
 	return;
 }
@@ -829,16 +827,12 @@ void delete_selection()
 	else
 	{	
 		while (select_start.line->next != select_end.line)
-		{
 			delete_line(select_start.line->next);
-			current_buffer->lines--;
-		}
 		select_start.line->length = select_start.x;
 		allocate_string(select_start.line, select_start.line->length);
 		if (select_end.x > 0)
 			insert_string(select_start.line, select_start.line->length, select_start.line->next->text + select_end.x + 1, select_start.line->next->length - select_end.x - 1);
 		delete_line(select_start.line->next);
-		current_buffer->lines--;
 	}
 
 	check_boundx();
@@ -946,32 +940,9 @@ void cut()
 
 void cut_line()
 {
-	delete_lines(pastebuffer); // clear the buffer completely
-	pastebuffer = insert_line(NULL, NULL, current_buffer->current_line->text, current_buffer->current_line->length);
-
-	if (current_buffer->current_line->next != NULL) // not the last line
-	{
-		current_buffer->current_line = current_buffer->current_line->next;
-		delete_line(current_buffer->current_line->prev);
-		current_buffer->lines--;
-		move_home();
-	}
-	else if (current_buffer->current_line->prev != NULL) // last line but not the first line
-	{
-		current_buffer->current_line = current_buffer->current_line->prev;
-		delete_line(current_buffer->current_line->next);
-		current_buffer->cy--;
-		current_buffer->lines--;
-		move_home();
-	}
-	else // last line and first line ie only line
-	{
-		delete_line(current_buffer->current_line);
-		current_buffer->current_line = insert_line(NULL, NULL, NULL, 0);
-		current_buffer->first_line = current_buffer->current_line;
-		move_file_home();
-	}
-	return;
+	copy_line();
+	delete_line(current_buffer->current_line);
+	check_boundx();
 }
 
 void paste()
@@ -1003,26 +974,25 @@ void paste()
 void delete_line(Line *line)
 {
 	// Delete selection mark if the line with the mark is deleted
-	if (current_buffer->select_mark.line == line)
-	{
-		clear_mark(current_buffer);
-	}
+	if (current_buffer->select_mark.line == line) clear_mark(current_buffer);
 	// Adjust the mark cy if it is after the deleted line
-	else if (current_buffer->cy < current_buffer->select_mark.y)
-	{
-		current_buffer->select_mark.y--;
-	}
+	else if (current_buffer->cy < current_buffer->select_mark.y) current_buffer->select_mark.y--;
 
 	if (line == current_buffer->first_line) current_buffer->first_line = line->next;
 	if (line == current_buffer->first_screen_line) current_buffer->first_screen_line = line->next;
 
-	if (line->prev != NULL)
-		line->prev->next = line->next;
-	if (line->next != NULL)
-		line->next->prev = line->prev;
+	if (line->prev != NULL) line->prev->next = line->next;
+	if (line->next != NULL) line->next->prev = line->prev;
+
+	if (line == current_buffer->current_line) 
+	{
+		if (line->next != NULL) current_buffer->current_line = line->next;
+		else current_buffer->current_line = line->prev;
+	}
 
 	free(line->text);
 	free(line);
+	current_buffer->lines--;
 }
 
 void delete_lines(Line *start_line)
