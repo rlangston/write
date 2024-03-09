@@ -441,23 +441,20 @@ void move_down()
 
 void move_word_right()
 {
-	while (current_buffer->cx != current_buffer->current_line->length && !isspace(current_buffer->current_line->text[current_buffer->cx]))
-		current_buffer->cx++;
-	current_buffer->cx++;
+	// Go through spaces, non-spaces, then spaces
+	while (current_buffer->cx != current_buffer->current_line->length && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx++;
+	while (current_buffer->cx != current_buffer->current_line->length && !isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx++;
+	while (current_buffer->cx != current_buffer->current_line->length && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx++;
 	check_boundx();
-	return;
 }
 
 void move_word_left()
 {
-	if (current_buffer->cx > 1)
-		current_buffer->cx -= 2;
-	while (current_buffer->cx != 0 && !isspace(current_buffer->current_line->text[current_buffer->cx]))
-		current_buffer->cx--;
-	if (current_buffer->cx != 0)
-		current_buffer->cx++;
+	// Go through spaces, non-spaces, then spaces
+	while (current_buffer->cx != 0 && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
+	while (current_buffer->cx != 0 && !isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
+	while (current_buffer->cx != 0 && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
 	check_boundx();
-	return;
 }
 
 void move_page_down()
