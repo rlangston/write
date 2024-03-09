@@ -4,3 +4,15 @@
 #define CTRL_END	537
 #define CTRL_PGDOWN	557
 #define CTRL_PGUP	562
+
+#define KEY_SDOWN	336
+#define KEY_SUP		337
+#define KEY_SPGUP	398
+#define KEY_SPGDOWN	396
+// #define KEY_SHOME	391
+// #define KEY_SEND	386
+#define KEY_CTRLSEND	538
+#define KEY_CTRLSHOME	543
+#define KEY_CTRL_SRIGHT	568
+#define KEY_CTRL_SLEFT	553
+

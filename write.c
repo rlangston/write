@@ -14,6 +14,8 @@ WINDOW *commandscr;
 
 // Current mode
 int mode;
+bool shift_selecting = false;
+bool end_shift_selecting = false;
 
 char *filename;
 
@@ -61,8 +63,7 @@ int main(int argc, char *argv[])
 	message("");
 	init();
 	move_file_home();
-	// char m[255];
-
+	
 	while(current_buffer != NULL)
 	{
 		refresh_screen();
@@ -70,45 +71,72 @@ int main(int argc, char *argv[])
 
 		if (ch == CTRL('q'))
 			break;
+
+		if (shifted_navigation_key(ch))
+		{
+			if (!shift_selecting)
+			{
+				shift_selecting = true;
+				mark(current_buffer);
+			}
+		}
+		else if (shift_selecting)
+		{
+			end_shift_selecting = true;
+		}
+
 		switch (ch)
 		{
 			// Movement keys
 			case KEY_RIGHT:
+			case KEY_SRIGHT:
 				move_right();
 				break;
 			case KEY_LEFT:
+			case KEY_SLEFT:
 				move_left();
 				break;
 			case KEY_UP:
+			case KEY_SUP:
 				move_up();
 				break;
 			case KEY_DOWN:
+			case KEY_SDOWN:
 				move_down();
 				break;
 			case CTRL_RIGHT: 
+			case KEY_CTRL_SRIGHT:
 				move_word_right();
 				break;
 			case CTRL_LEFT: 
+			case KEY_CTRL_SLEFT:
 				move_word_left();
 				break;
 			case KEY_NPAGE:
+			case KEY_SPGDOWN:
 				move_page_down();
 				break;
 			case KEY_PPAGE:
+			case KEY_SPGUP:
 				move_page_up();
 				break;
 			case KEY_END:
+			case KEY_SEND:
 				move_end();
 				break;
 			case KEY_HOME:
+			case KEY_SHOME:
 				move_home();
 				break;
 			case CTRL_HOME: // CTRL-HOME
+			case KEY_CTRLSHOME:
 				move_file_home();
 				break;
 			case CTRL_END: // CTRL-END
+			case KEY_CTRLSEND:
 				move_file_end();
 				break;
+
 
 			case CTRL_PGDOWN: // CTRL-PGDOWN
 				if (current_buffer->next != NULL) current_buffer = current_buffer->next;
@@ -239,10 +267,62 @@ int main(int argc, char *argv[])
 				}
 				break;
 		}
+
+		if (end_shift_selecting)
+		{
+			shift_selecting = false;
+			end_shift_selecting = false;
+			clear_mark(current_buffer);
+		}
 	}
 
 	shutdown();
 	return 0;
+}
+
+bool shifted_navigation_key(int ch)
+{
+	switch (ch)
+	{
+		case KEY_SRIGHT:
+		case KEY_SLEFT:
+		case KEY_SUP:
+		case KEY_SDOWN:
+		case KEY_SPGUP:
+		case KEY_SPGDOWN:
+		case KEY_SHOME:
+		case KEY_SEND:
+		case KEY_CTRLSEND:
+		case KEY_CTRLSHOME:
+		case KEY_CTRL_SRIGHT:
+		case KEY_CTRL_SLEFT:
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool navigation_key(int ch)
+{
+	switch (ch)
+	{
+		case KEY_RIGHT:
+		case KEY_LEFT:
+		case KEY_UP:
+		case KEY_DOWN:
+		case KEY_NPAGE:
+		case KEY_PPAGE:
+		case KEY_END:
+		case KEY_HOME:
+		case CTRL_HOME:
+		case CTRL_END:
+		case KEY_DC:
+		case CTRL('c'): // Copy
+		case CTRL('x'): // Cut
+			return true;
+		default:
+			return false;
+	}
 }
 
 void init()

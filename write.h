@@ -65,6 +65,8 @@ void move_file_end();
 
 int cxtodx(Line *line, int cx);
 int dxtocx(Line *line, int dx);
+bool shifted_navigation_key(int ch);
+bool navigation_key(int ch);
 
 void check_boundx();
 void goto_line(int line);
