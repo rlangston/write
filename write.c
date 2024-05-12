@@ -357,7 +357,7 @@ void init()
 	mode = MODE_EDIT;
 
 	// Set up  paste buffer
-	paste_buffer = add_buffer();
+	paste_buffer = add_sbuffer();
 	paste_buffer->first_line = NULL;
 	paste_buffer->lines = 0;
 }
