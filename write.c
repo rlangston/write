@@ -257,10 +257,19 @@ int main(int argc, char *argv[])
 				push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_ENTER, NULL, 0);
 				break;
 			case KEY_BACKSPACE:
-				// Push the previous character into the undo buffer
-				push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_BACKSPACE, current_buffer->current_line->text + current_buffer->cx - 1, 1);
-				backspace();
+				// Delete selection if there is a select mark
+				if (current_buffer->select_mark.line != NULL)
+				{
+					delete_selection();
+				}
+				else
+				{
+					// Push the previous character into the undo buffer
+					push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_BACKSPACE, current_buffer->current_line->text + current_buffer->cx - 1, 1);
+					backspace();
+				}
 				current_buffer->modified = true;
+				clear_mark(current_buffer);
 				break;
 			case KEY_DC:
 				// Delete selection if there is a select mark
@@ -283,6 +292,7 @@ int main(int argc, char *argv[])
 					if (current_buffer->select_mark.line != NULL)
 					{
 						delete_selection();
+						clear_mark(current_buffer);
 					}
 					insert_char(current_buffer->current_line, current_buffer->cx, ch);
 					current_buffer->cx++;
