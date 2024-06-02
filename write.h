@@ -14,6 +14,9 @@ bool o_show_linenumbers;
 #define COL_BLACKWHITE 3
 #define COL_BLUEWHITE 4
 
+// Undo types
+#define UNDO_INSERTCHAR 1
+
 // Line structure (a double linked list)
 typedef struct Line {
 	int length;
@@ -29,8 +32,11 @@ typedef struct Select_mark {
 } Select_mark;
 
 typedef struct Undo_mark {
-	Line *line;
 	int x;
+	int y;
+	int type;
+	char *text;
+	struct Undo_mark *next;
 } Undo_mark;
 
 typedef struct buffer {
@@ -50,6 +56,9 @@ typedef struct buffer {
 } buffer;
 
 // Functions
+void push_undo(int x, int y, int type, char *text, int length);
+void pull_undo();
+
 void move_right();
 void move_left();
 void move_up();

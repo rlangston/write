@@ -29,6 +29,7 @@ buffer *current_buffer = NULL;
 buffer *paste_buffer = NULL;
 buffer *message_buffer= NULL;
 buffer *first_buffer = NULL;
+Undo_mark *undo_head = NULL;
 int message_timer = 0;
 
 // Cut and paste buffer
@@ -217,7 +218,6 @@ int main(int argc, char *argv[])
 
 				clear_mark(current_buffer);
 				break;
-
 			case CTRL('x'): // Cut
 				if (current_buffer->select_mark.line == NULL)
 					cut_line();
@@ -228,6 +228,10 @@ int main(int argc, char *argv[])
 				break;
 			case CTRL('v'): // Paste
 				paste();
+				current_buffer->modified = true;
+				break;
+			case CTRL('z'): // Undo
+				pull_undo();
 				current_buffer->modified = true;
 				break;
 
@@ -264,6 +268,7 @@ int main(int argc, char *argv[])
 					current_buffer->cx++;
 					check_boundx();
 					current_buffer->modified = true;
+					push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_INSERTCHAR, current_buffer->current_line->text + current_buffer->cx - 1, 1);
 				}
 				break;
 		}
@@ -382,9 +387,55 @@ void shutdown()
 		close(current_buffer);
 	}
 
+	// Clear the undo marks
+	while (undo_head != NULL)
+	{
+		Undo_mark *u = undo_head;
+		undo_head = u->next;
+		free(u->text);
+		free(u);
+	}
+
 	set_escdelay(1000);
 	endwin();
 	return;
+}
+
+void push_undo(int x, int y, int type, char *text, int length)
+{
+	Undo_mark *mark = (Undo_mark *) malloc(sizeof(Undo_mark));
+	mark->x = x;
+	mark->y = y;
+	mark->type = type;
+	mark->text = (char *) malloc(sizeof(char) * length);
+	memcpy(mark->text, text, length);
+
+	// Insert this mark at the head of the undo mark list
+	mark->next = undo_head;
+	undo_head = mark;
+}
+
+void pull_undo()
+{
+	Undo_mark *mark = undo_head;
+
+	// Return immediately if nothing in the buffer
+	if (mark == NULL) return; 
+
+	// Move the head to the next item in the list
+	undo_head = mark->next;
+
+	if (mark->type == UNDO_INSERTCHAR)
+	{
+		goto_line(mark->y + 1);
+		current_buffer->cx = mark->x - 1;
+		check_boundx();
+		delete();
+	}
+
+	// Delete the undo mark
+	free(mark->text);
+	free(mark);
 }
 
 void move_right()
