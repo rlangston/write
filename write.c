@@ -435,7 +435,6 @@ void push_undo(int x, int y, int type, char *text, int length)
 /*
 #define UNDO_CUT 4
 #define UNDO_PASTE 5
-#define UNDO_ENTER 6
 #define UNDO_DELETESELECTION 7
 */
 
@@ -530,10 +529,30 @@ void move_word_right()
 
 void move_word_left()
 {
-	// Go through spaces, non-spaces, then spaces
-	while (current_buffer->cx != 0 && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
-	while (current_buffer->cx != 0 && !isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
-	while (current_buffer->cx != 0 && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
+	// If at start of line, do nothing
+	if (current_buffer->cx == 0) return;
+
+	// If in space, go to start of previous word
+	if (isspace(current_buffer->current_line->text[current_buffer->cx]))
+	{
+		while (current_buffer->cx > 0 && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
+		while (current_buffer->cx > 0 && !isspace(current_buffer->current_line->text[current_buffer->cx - 1])) current_buffer->cx--;
+	}
+
+	// If at start of word, go to start of previous word
+	else if (isspace(current_buffer->current_line->text[current_buffer->cx - 1]))
+	{
+		current_buffer->cx--;
+		while (current_buffer->cx > 0 && isspace(current_buffer->current_line->text[current_buffer->cx])) current_buffer->cx--;
+		while (current_buffer->cx > 0 && !isspace(current_buffer->current_line->text[current_buffer->cx - 1])) current_buffer->cx--;
+	}
+
+	// If not at start of word, go to start of the current word
+	else
+	{
+		while (current_buffer->cx > 0 && !isspace(current_buffer->current_line->text[current_buffer->cx - 1])) current_buffer->cx--;
+	}
+
 	check_boundx();
 }
 
