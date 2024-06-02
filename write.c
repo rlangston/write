@@ -529,8 +529,12 @@ void move_word_right()
 
 void move_word_left()
 {
-	// If at start of line, do nothing
-	if (current_buffer->cx == 0) return;
+	// If at start of line, go to end of previous line, then run as normal
+	if (current_buffer->cx == 0 && current_buffer->current_line->prev != NULL)
+	{
+		move_lines_up(1);
+		move_end();
+	}
 
 	// If in space, go to start of previous word
 	if (isspace(current_buffer->current_line->text[current_buffer->cx]))
