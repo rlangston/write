@@ -493,15 +493,11 @@ void move_left()
 		current_buffer->cx--;
 	else if (current_buffer->current_line->prev != NULL)
 	{
-		current_buffer->current_line = current_buffer->current_line->prev;
-		current_buffer->cy--;
+		move_lines_up(1);
 		move_end();
 	}
 
-	if (current_buffer->cx - current_buffer->offsetx < 0)
-		current_buffer->offsetx = current_buffer->cx;
-
-	return;
+	check_boundx();
 }
 
 void move_up()
@@ -624,6 +620,9 @@ void check_boundx()
 	}
 	if (cxtodx(current_buffer->current_line, current_buffer->cx) - current_buffer->offsetx > windowx - current_buffer->margin_left - 1)
 		current_buffer->offsetx = current_buffer->cx - windowx - current_buffer->margin_left + 1;
+
+	if (cxtodx(current_buffer->current_line, current_buffer->cx) - current_buffer->offsetx < 0)
+		current_buffer->offsetx = current_buffer->cx;
 
 	return;
 }
