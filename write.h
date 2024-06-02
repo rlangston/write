@@ -16,6 +16,12 @@ bool o_show_linenumbers;
 
 // Undo types
 #define UNDO_INSERTCHAR 1
+#define UNDO_BACKSPACE 2
+#define UNDO_DELETE 3
+#define UNDO_CUT 4
+#define UNDO_PASTE 5
+#define UNDO_ENTER 6
+#define UNDO_DELETESELECTION 7
 
 // Line structure (a double linked list)
 typedef struct Line {

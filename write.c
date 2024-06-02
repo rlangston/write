@@ -243,21 +243,37 @@ int main(int argc, char *argv[])
 				resize_window();
 				break;
 
+/*
+#define UNDO_CUT 4
+#define UNDO_PASTE 5
+#define UNDO_DELETESELECTION 7
+*/
+
 			// Editing
 			case 10: // ENTER
 				enter();
 				current_buffer->modified = true;
+				// Push the current position into the undo buffer
+				push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_ENTER, NULL, 0);
 				break;
 			case KEY_BACKSPACE:
+				// Push the previous character into the undo buffer
+				push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_BACKSPACE, current_buffer->current_line->text + current_buffer->cx - 1, 1);
 				backspace();
 				current_buffer->modified = true;
 				break;
 			case KEY_DC:
 				// Delete selection if there is a select mark
 				if (current_buffer->select_mark.line != NULL)
+				{
 					delete_selection();
+				}
 				else
+				{
+					// Push the current character in the text buffer into the undo buffer
+					push_undo(current_buffer->cx + 1, current_buffer->cy + current_buffer->offsety, UNDO_DELETE, current_buffer->current_line->text + current_buffer->cx, 1);
 					delete();
+				}
 				current_buffer->modified = true;
 				clear_mark(current_buffer);
 				break;
@@ -268,6 +284,7 @@ int main(int argc, char *argv[])
 					current_buffer->cx++;
 					check_boundx();
 					current_buffer->modified = true;
+					// Push the character just inserted into the undo buffer
 					push_undo(current_buffer->cx, current_buffer->cy + current_buffer->offsety, UNDO_INSERTCHAR, current_buffer->current_line->text + current_buffer->cx - 1, 1);
 				}
 				break;
@@ -415,6 +432,13 @@ void push_undo(int x, int y, int type, char *text, int length)
 	undo_head = mark;
 }
 
+/*
+#define UNDO_CUT 4
+#define UNDO_PASTE 5
+#define UNDO_ENTER 6
+#define UNDO_DELETESELECTION 7
+*/
+
 void pull_undo()
 {
 	Undo_mark *mark = undo_head;
@@ -422,17 +446,22 @@ void pull_undo()
 	// Return immediately if nothing in the buffer
 	if (mark == NULL) return; 
 
-	// Move the head to the next item in the list
-	undo_head = mark->next;
+	// Goto where the mark needs to be undone
+	goto_line(mark->y + 1);
+	current_buffer->cx = mark->x - 1;
+	check_boundx();
 
 	if (mark->type == UNDO_INSERTCHAR)
-	{
-		goto_line(mark->y + 1);
-		current_buffer->cx = mark->x - 1;
-		check_boundx();
 		delete();
-	}
+	else if (mark->type == UNDO_DELETE)
+		insert_string(current_buffer->current_line, current_buffer->cx, mark->text, 1);
+	else if (mark->type == UNDO_BACKSPACE)
+		insert_string(current_buffer->current_line, current_buffer->cx, mark->text, 1);
+	else if (mark->type == UNDO_ENTER)
+		backspace();
 
+	// Move the head to the next item in the list
+	undo_head = mark->next;
 	// Delete the undo mark
 	free(mark->text);
 	free(mark);
