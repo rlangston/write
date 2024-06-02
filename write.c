@@ -280,6 +280,10 @@ int main(int argc, char *argv[])
 			default:
 				if ((ch > 27 && ch < 256) || (ch == '\t')) // Ignore control characters
 				{
+					if (current_buffer->select_mark.line != NULL)
+					{
+						delete_selection();
+					}
 					insert_char(current_buffer->current_line, current_buffer->cx, ch);
 					current_buffer->cx++;
 					check_boundx();
